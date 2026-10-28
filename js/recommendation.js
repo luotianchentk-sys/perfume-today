@@ -26,7 +26,7 @@
     var validHumidity = finite(ctx.humidity) && ctx.humidity >= 0 && ctx.humidity <= 100;
     var denominator = (temps.length ? 90 : 0) + (ctx.season ? 10 : 0);
     return list(data).filter(function (b) {
-      return b && b.n && excluded.indexOf(b.n) < 0 && (!scenes.length || scenes.some(function (s) { return list(b.sc).indexOf(s) >= 0; }));
+      return b && b.n && !b.out && excluded.indexOf(b.n) < 0 && (!scenes.length || scenes.some(function (s) { return list(b.sc).indexOf(s) >= 0; }));
     }).map(function (b) {
       var temperatureMatch = temps.length ? temps.some(function (t) { return list(b.t).indexOf(t) >= 0; }) : null;
       var seasonMatch = ctx.season ? list(b.s).indexOf(ctx.season) >= 0 : null;
