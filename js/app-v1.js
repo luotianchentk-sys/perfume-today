@@ -17,7 +17,7 @@
   function pyramid(p){var layers=[['前调','top'],['中调','heart'],['后调','base']].filter(function(a){return p[a[1]];}).map(function(a){return '<div class="note-row"><span class="note-key">'+a[0]+'</span><span>'+esc(p[a[1]])+'</span></div>';}).join('');return layers||(p.notes?'<div class="note-row"><span class="note-key">香气</span><span>'+esc(p.notes)+'</span></div>':'');}
   var favs=Array.from(new Set(array(read('chx_favs',[])).map(canonicalName))), wears=array(read('chx_wears_v1',[])).filter(function(r){return r&&r.confirmed===true;}).map(savedRow);
   var legacy=array(read('chx_history',[])).map(savedRow), plan=read('chx_plan_v1',{}), city=read('chx_city','上海');
-  var locationWanted=read('chx_location_enabled',false)===true,locationPoint=null,locationEpoch=0,locationTask=null;
+  var locationWanted=read('chx_location_mode_v3','auto')==='auto',locationUnavailable=false,locationPoint=null,locationEpoch=0,locationTask=null;
   if(!plan||Array.isArray(plan)||typeof plan!=='object')plan={};
   Object.keys(plan).forEach(function(key){if(typeof plan[key]==='string')plan[key]=canonicalName(plan[key]);});
   var scene='', manual='', pickState={}, shelf={q:'',family:'',season:'',price:'',all:true};
@@ -101,8 +101,9 @@
     $('pick-result').innerHTML=picks.length?picks.map(function(r){return '<article class="res-card"><div class="result-heading"><span class="bottle-vis md">'+picture(r.b)+'</span><div><h2 class="res-name">'+esc(shortName(r.b))+'</h2><p class="res-brand">'+esc(r.b.b+' · '+r.b.f)+'</p></div></div><div class="s-pyramid">'+pyramid(r.b)+'</div><div class="res-actions"><button class="btn btn-solid" type="button" data-open="'+esc(r.b.n)+'">完整香卡</button>'+favoriteButton(r.b.n)+'</div></article>';}).join(''):'<div class="empty-tip">没有香水同时符合这些条件，可以减少条件或改为不限场合。</div>';
   }
   function weatherText(prefix){
-    if($('wx-meta'))$('wx-meta').textContent=weather?weather.source+' · '+(weather.dataTime?'数据时间 '+weather.dataTime:'获取于 '+new Date(weather.observedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}))+(weather.source==='Open-Meteo'?' · 室外气象模型参考':' · 备用天气参考'):'';
+    if($('wx-meta'))$('wx-meta').textContent=weather?(locationUnavailable?'城市参考 · ':'')+(weather.source||'缓存')+' · '+(weather.dataTime?'数据时间 '+weather.dataTime:'获取于 '+new Date(weather.observedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}))+(weather.source==='Open-Meteo'?' · 室外气象模型参考':' · 备用天气参考'):'';
     if(manual){$('wx-info').textContent='手动 '+manual+' · '+season()+'季';return;}
+    if(locationUnavailable){$('wx-info').textContent=(weather?Math.round(weather.temperature)+'℃ · ':'')+'未定位 · 湿度待获取';return;}
     $('wx-info').textContent=weather?(prefix||'')+Math.round(weather.temperature)+'℃'+(weather.humidity==null?'':' · 室外湿度 '+Math.round(weather.humidity)+'%')+' · '+season()+'季':'天气未更新，可手动设温度';
   }
   function clearWeather(){weather=null;renderDaily(true);}
@@ -152,22 +153,22 @@
   function refreshWeatherIfNeeded(){if(locationTask)return;var label=locationPoint?'当前位置':city;if(!manual&&(!recentWeather(weather,label)||Date.now()-weather.observedAt>=15*60*1000||localDay(new Date(weather.observedAt))!==localDay()))requestWeather();}
   function useLocation(){
     if(locationTask)return locationTask;
-    var epoch=++locationEpoch;++weatherEpoch;$('wx-locate').disabled=true;$('wx-location-status').textContent='正在获取当前位置…';
+    var epoch=++locationEpoch;++weatherEpoch;locationUnavailable=false;write('chx_location_mode_v3','auto');$('wx-locate').disabled=true;$('wx-location-status').textContent='正在获取当前位置…';$('wx-info').textContent='正在获取当前位置…';
     locationTask=Promise.resolve().then(function(){return new Promise(function(resolve){
       var settled=false,timer;
-      function failed(error){if(settled)return;settled=true;clearTimeout(timer);if(epoch!==locationEpoch){resolve(false);return;}locationTask=null;locationPoint=null;locationWanted=false;write('chx_location_enabled',false);$('wx-locate').disabled=false;$('wx-city').textContent=city;$('wx-location-status').textContent=(error&&error.code===1?'定位未授权':'暂时无法定位')+'，继续使用'+city+'天气。';toast('未取得定位，继续使用'+city+'天气');fetchWeather();resolve(false);}
+      function failed(error){if(settled)return;settled=true;clearTimeout(timer);if(epoch!==locationEpoch){resolve(false);return;}locationTask=null;locationPoint=null;locationWanted=false;locationUnavailable=true;write('chx_location_enabled',false);$('wx-locate').disabled=false;$('wx-city').textContent=city;$('wx-location-status').textContent=(error&&error.code===1?'定位未授权':'暂时无法定位')+'，温度暂用'+city+'参考；取得定位前不显示附近湿度。';toast('请允许此网站使用位置，才能获取附近湿度');fetchWeather();resolve(false);}
       if(epoch!==locationEpoch){resolve(false);return;}
       if(!navigator.geolocation||window.isSecureContext===false){failed();return;}
       timer=setTimeout(function(){failed({code:3});},10000);
       try{navigator.geolocation.getCurrentPosition(function(position){
         if(settled)return;var c=position&&position.coords;if(!c||!Number.isFinite(c.latitude)||!Number.isFinite(c.longitude)||Math.abs(c.latitude)>90||Math.abs(c.longitude)>180){failed();return;}
         settled=true;clearTimeout(timer);if(epoch!==locationEpoch){resolve(false);return;}
-        locationTask=null;locationPoint=[Math.round(c.latitude*100)/100,Math.round(c.longitude*100)/100];locationWanted=true;write('chx_location_enabled',true);manual='';$('manual-temp').value='';$('wx-locate').disabled=false;$('wx-city').textContent='当前位置';$('wx-location-status').textContent='已使用当前位置附近的天气。';$('wx-panel').hidden=true;$('wx-city').setAttribute('aria-expanded','false');fetchWeather();resolve(true);
+        locationTask=null;locationPoint=[Math.round(c.latitude*100)/100,Math.round(c.longitude*100)/100];locationWanted=true;locationUnavailable=false;write('chx_location_enabled',true);write('chx_location_mode_v3','auto');manual='';$('manual-temp').value='';$('wx-locate').disabled=false;$('wx-city').textContent='当前位置';$('wx-location-status').textContent='已使用当前位置附近的天气。';$('wx-panel').hidden=true;$('wx-city').setAttribute('aria-expanded','false');fetchWeather();resolve(true);
       },failed,{enableHighAccuracy:false,timeout:10000,maximumAge:60000});}catch(e){failed();}
     });});
     return locationTask;
   }
-  function setCity(value){value=String(value||'').trim();if(!value)return;++locationEpoch;locationTask=null;locationPoint=null;locationWanted=false;write('chx_location_enabled',false);$('wx-locate').disabled=false;$('wx-location-status').textContent='';city=value;write('chx_city',city);$('wx-city').textContent=city;$('wx-panel').hidden=true;$('wx-city').setAttribute('aria-expanded','false');manual='';$('manual-temp').value='';swap=0;fetchWeather();}
+  function setCity(value){value=String(value||'').trim();if(!value)return;++locationEpoch;locationTask=null;locationPoint=null;locationWanted=false;locationUnavailable=false;write('chx_location_enabled',false);write('chx_location_mode_v3','city');$('wx-locate').disabled=false;$('wx-location-status').textContent='';city=value;write('chx_city',city);$('wx-city').textContent=city;$('wx-panel').hidden=true;$('wx-city').setAttribute('aria-expanded','false');manual='';$('manual-temp').value='';swap=0;fetchWeather();}
   function openPlan(){
     var options='<option value="">暂不安排</option>'+D.map(function(p){return '<option value="'+esc(p.n)+'">'+esc(p.n)+'</option>';}).join('');
     $('plan-grid').innerHTML=Array.from({length:7},function(_,i){var day=new Date();day.setHours(12,0,0,0);day.setDate(day.getDate()+i);var key=localDay(day);return '<fieldset class="plan-day"><legend>'+esc(key)+'</legend>'+[['day','日间'],['night','夜间']].map(function(a){return '<label>'+a[1]+'<select data-plan="'+key+'|'+a[0]+'">'+options+'</select></label>';}).join('')+'</fieldset>';}).join('');
