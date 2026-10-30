@@ -2,18 +2,20 @@
  * 策略：install 预缓存核心壳，运行时 cache-first + 按需缓存图片（ph/）。
  * 仅在 https 或 localhost 下注册生效。
  */
-const CACHE = "jinrichuanxiang-20261030-script-v1";
+const CACHE = "jinrichuanxiang-20261030-icon-v5";
 const CORE = [
   "./",
   "./index.html",
-  "./manifest.json",
+  "./manifest.json?v=20261030-icon-v5",
   "./css/app-v1.css",
   "./js/calendar.js",
   "./js/data.js",
   "./js/recommendation.js",
   "./js/app-v1.js",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icons/icon-192-v5.png",
+  "./icons/icon-512-v5.png",
+  "./icons/apple-touch-icon-v5.png",
+  "./icons/favicon-v5.png"
 ];
 
 self.addEventListener("install", (e) => {
