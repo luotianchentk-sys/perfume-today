@@ -36,7 +36,7 @@
   function renderDaily(reset){
     if(reset)swap=0;
     var featured=window.SCENT_DAILY_FEATURE;
-    choices=featured&&featured.date===localDay()&&!scene&&!manual?array(featured.order).map(function(n){return byName(n);}).filter(Boolean).map(function(b){return {b:b};}):E.select(E.rank(D,context()),3);
+    choices=featured&&featured.mode==='locked'&&!scene&&!manual?array(featured.order).map(function(n){return byName(n);}).filter(Boolean).map(function(b){return {b:b};}):E.select(E.rank(D,context()),3);
     var p=current(), others=choices.filter(function(r){return !p||r.b.n!==p.n;});
     $('daily-card').hidden=!p;$('daily-empty').hidden=!!p;
     $('other-section').hidden=!others.length;
