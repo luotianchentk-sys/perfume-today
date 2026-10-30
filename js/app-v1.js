@@ -33,6 +33,8 @@
   function toast(msg){$('toast').textContent=msg;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(function(){$('toast').classList.remove('show');},1800);}
   function context(extra){var c={temperature:manual?null:(weather?weather.temperature:null),temperatureBuckets:manual?[manual]:[],humidity:manual?null:(weather?weather.humidity:null),season:season(),scenes:scene?[scene]:[],date:localDay()};return Object.assign(c,extra||{});}
   function current(){return choices.length?choices[swap%choices.length].b:null;}
+  function homeScenes(p){return array(p.homeScenes).length?array(p.homeScenes).slice(0,2):array(p.sc).slice(0,2);}
+  function sceneLabels(p){return homeScenes(p).map(function(s){return '<span class="home-scene" data-home-scene>'+esc(s)+'</span>';}).join('');}
   function wornToday(n){return wears.some(function(r){return r.n===n&&r.d===localDay();});}
   function renderDaily(reset){
     if(reset)swap=0;
@@ -43,11 +45,11 @@
     $('other-section').hidden=!others.length;
     if(p){
       $('daily-card').dataset.name=p.n;$('daily-name').textContent=shortName(p);$('daily-brand').textContent=p.b;
-      $('daily-vis').innerHTML=picture(p,'primary-picture');$('daily-family').textContent=p.f||'';$('daily-pyramid').innerHTML=pyramid(p);
+      $('daily-vis').innerHTML=picture(p,'primary-picture');$('daily-family').textContent=p.f||'';$('daily-pyramid').innerHTML=pyramid(p);$('daily-scenes').innerHTML=sceneLabels(p);
       $('btn-wear').textContent=wornToday(p.n)?'今天已穿':'今天穿它';$('btn-wear').disabled=wornToday(p.n);
       $('btn-swap').disabled=choices.length<2;
     }
-    $('other-list').innerHTML=others.map(function(r){var b=r.b;return '<button class="other-card" type="button" data-open="'+esc(b.n)+'">'+picture(b)+'<span class="other-copy"><span class="other-name">'+esc(shortName(b))+'</span><span>'+esc(b.b)+'</span><span>'+esc(b.f)+'</span></span></button>';}).join('');
+    $('other-list').innerHTML=others.map(function(r){var b=r.b;return '<button class="other-card" type="button" data-open="'+esc(b.n)+'">'+picture(b)+'<span class="other-copy"><span class="other-name">'+esc(shortName(b))+'</span><span>'+esc(b.b)+'</span><span>'+esc(b.f)+'</span><span class="home-scenes" aria-label="适用场景">'+sceneLabels(b)+'</span></span></button>';}).join('');
     var notice='';
     if(p&&choices.length<3)notice='当前场合只找到 '+choices.length+' 个品牌，可以选择不限场合。';
     if(p&&choices.some(function(r){return r.temperatureMatch===false;}))notice='当前场合的适温选择较少，可调整场合或查看完整香卡。';

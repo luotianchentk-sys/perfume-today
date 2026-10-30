@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="今日穿香">
 <title>今日穿香 · 香水每日选择工作台</title>
 <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap">
-<link rel="stylesheet" href="css/app-v1.css">
+<link rel="stylesheet" href="css/app-v1.css?v=20261031-home-scenes-v1">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-v5.png">
 </head>
 <body>
@@ -33,7 +33,7 @@
     <label class="scene-control">今天的场合<select id="daily-scene"><option value="">不限场合</option></select></label>
     <p id="daily-notice" class="state-notice" hidden aria-live="polite"></p>
     <article id="daily-card" class="daily-card">
-      <span class="daily-eyebrow">今日首选</span><h2 id="daily-name" class="dc-name"></h2><p id="daily-brand" class="dc-brand"></p>
+      <span class="daily-eyebrow">今日首选</span><h2 id="daily-name" class="dc-name"></h2><p id="daily-brand" class="dc-brand"></p><div id="daily-scenes" class="home-scenes daily-scenes" aria-label="适用场景"></div>
       <div class="daily-stage"><div id="daily-vis" class="bottle-vis lg"></div><div class="daily-notes"><p id="daily-family" class="daily-family"></p><div id="daily-pyramid" class="dc-pyramid"></div></div></div>
       <button id="btn-wear" class="btn btn-solid wear-button" type="button">今天穿它</button>
       <div class="daily-secondary"><button id="btn-swap" class="text-button" type="button">换一瓶</button><button id="btn-detail-daily" class="text-button" type="button">完整香卡</button></div>
@@ -173,9 +173,9 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </div>
 <script src="js/calendar.js"></script>
-<script src="js/data.js?v=20261031-locked-v1"></script>
+<script src="js/data.js?v=20261031-home-scenes-v1"></script>
 <script src="js/recommendation.js"></script>
-<script src="js/app-v1.js?v=20261031-auto-location-v1"></script>
+<script src="js/app-v1.js?v=20261031-home-scenes-v1"></script>
 <script>
 if ('serviceWorker' in navigator && /^https:|^http:\/\/localhost/.test(location.protocol + '//' + location.host)) {
   window.addEventListener('load', function () {
