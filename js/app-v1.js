@@ -35,7 +35,8 @@
   function wornToday(n){return wears.some(function(r){return r.n===n&&r.d===localDay();});}
   function renderDaily(reset){
     if(reset)swap=0;
-    choices=E.select(E.rank(D,context()),3);
+    var featured=window.SCENT_DAILY_FEATURE;
+    choices=featured&&featured.date===localDay()&&!scene&&!manual?array(featured.order).map(function(n){return byName(n);}).filter(Boolean).map(function(b){return {b:b};}):E.select(E.rank(D,context()),3);
     var p=current(), others=choices.filter(function(r){return !p||r.b.n!==p.n;});
     $('daily-card').hidden=!p;$('daily-empty').hidden=!!p;
     $('other-section').hidden=!others.length;
@@ -103,29 +104,46 @@
     $('wx-info').textContent=weather?(prefix||'')+Math.round(weather.temperature)+'℃'+(weather.humidity==null?'':' · 湿度 '+Math.round(weather.humidity)+'%')+' · '+season()+'季':'天气未更新，可手动设温度';
   }
   function clearWeather(){weather=null;renderDaily(true);}
+  function recentWeather(value,requestCity){return value&&value.city===requestCity&&typeof value.temperature==='number'&&Number.isFinite(value.temperature)&&typeof value.observedAt==='number'&&Date.now()-value.observedAt>=0&&Date.now()-value.observedAt<2*60*60*1000;}
+  async function weatherJson(url){
+    var controller=typeof AbortController!=='undefined'?new AbortController():null,timer;
+    try{return await Promise.race([
+      (async function(){var r=await fetch(url,controller?{signal:controller.signal}:{});if(!r.ok)throw Error('weather-http');return r.json();})(),
+      new Promise(function(resolve,reject){timer=setTimeout(function(){reject(Error('weather-timeout'));if(controller)controller.abort();},5000);})
+    ]);}finally{clearTimeout(timer);}
+  }
   async function fetchWeather(){
     var epoch=++weatherEpoch, requestCity=city;
-    clearWeather();$('wx-info').textContent='正在读取天气…';
-    var controller=typeof AbortController!=='undefined'?new AbortController():null;
-    var timeout=setTimeout(function(){if(controller)controller.abort();},10000);
+    var previous=recentWeather(weather,requestCity)?weather:read('chx_weather_v2',null);
+    if(recentWeather(previous,requestCity)){weather=Object.assign({},previous,{humidity:typeof previous.humidity==='number'&&Number.isFinite(previous.humidity)&&previous.humidity>=0&&previous.humidity<=100?previous.humidity:null});weatherText('刷新中 · ');}
+    else{clearWeather();$('wx-info').textContent='正在读取天气…';}
     try{
       var coord=COORDS[requestCity];
-      if(!coord){var geo=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(requestCity)+'&count=1&language=zh&format=json',controller?{signal:controller.signal}:{});if(!geo.ok)throw Error('geo');var gj=await geo.json();if(!gj.results||!gj.results.length)throw Error('city');coord=[gj.results[0].latitude,gj.results[0].longitude];}
-      var response=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+coord[0]+'&longitude='+coord[1]+'&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto',controller?{signal:controller.signal}:{});
-      if(!response.ok)throw Error('weather');var json=await response.json(), w=json.current;
-      if(!w||typeof w.temperature_2m!=='number'||!Number.isFinite(w.temperature_2m))throw Error('temperature');
+      if(!coord){var gj=await weatherJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(requestCity)+'&count=1&language=zh&format=json');if(!gj.results||!gj.results.length)throw Error('city');coord=[gj.results[0].latitude,gj.results[0].longitude];}
+      var temperature,humidity,source='Open-Meteo';
+      try{
+        var json=await weatherJson('https://api.open-meteo.com/v1/forecast?latitude='+coord[0]+'&longitude='+coord[1]+'&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto'),w=json.current;
+        if(!w||typeof w.temperature_2m!=='number'||!Number.isFinite(w.temperature_2m)||w.temperature_2m< -90||w.temperature_2m>65)throw Error('temperature');
+        temperature=w.temperature_2m;humidity=typeof w.relative_humidity_2m==='number'&&Number.isFinite(w.relative_humidity_2m)&&w.relative_humidity_2m>=0&&w.relative_humidity_2m<=100?w.relative_humidity_2m:null;
+      }catch(primaryError){
+        if(epoch!==weatherEpoch)return;
+        var backup=await weatherJson('https://wttr.in/'+coord[0]+','+coord[1]+'?format=j1'),b=backup.current_condition&&backup.current_condition[0];
+        if(!b||b.temp_C==null||String(b.temp_C).trim()==='')throw Error('temperature');
+        temperature=Number(b.temp_C);if(!Number.isFinite(temperature)||temperature< -90||temperature>65)throw Error('temperature');
+        humidity=b.humidity!=null&&String(b.humidity).trim()!==''?Number(b.humidity):null;if(!Number.isFinite(humidity)||humidity<0||humidity>100)humidity=null;source='wttr.in';
+      }
       if(epoch!==weatherEpoch)return;
-      var humidity=typeof w.relative_humidity_2m==='number'&&w.relative_humidity_2m>=0&&w.relative_humidity_2m<=100?w.relative_humidity_2m:null;
-      weather={temperature:w.temperature_2m,humidity:humidity,city:requestCity,observedAt:Date.now()};
-      write('chx_weather_v2',weather);weatherText();renderDaily(true);
+      weather={temperature:temperature,humidity:humidity,city:requestCity,observedAt:Date.now(),source:source};
+      write('chx_weather_v2',weather);weatherText(source==='wttr.in'?'备用天气 · ':'');renderDaily(true);
     }catch(e){
       if(epoch!==weatherEpoch)return;
       var cache=read('chx_weather_v2',null);
       if(cache&&cache.city===requestCity&&typeof cache.temperature==='number'&&Number.isFinite(cache.temperature)&&typeof cache.observedAt==='number'&&Date.now()-cache.observedAt>=0&&Date.now()-cache.observedAt<2*60*60*1000){weather=Object.assign({},cache,{humidity:typeof cache.humidity==='number'&&Number.isFinite(cache.humidity)&&cache.humidity>=0&&cache.humidity<=100?cache.humidity:null});weatherText('缓存天气 · ');}
       else {weather=null;weatherText();}
       renderDaily(true);
-    }finally{clearTimeout(timeout);}
+    }
   }
+  function refreshWeatherIfNeeded(){if(!manual&&(!recentWeather(weather,city)||Date.now()-weather.observedAt>=15*60*1000||localDay(new Date(weather.observedAt))!==localDay()))fetchWeather();}
   function setCity(value){value=String(value||'').trim();if(!value)return;city=value;write('chx_city',city);$('wx-city').textContent=city;$('wx-panel').hidden=true;$('wx-city').setAttribute('aria-expanded','false');manual='';$('manual-temp').value='';swap=0;fetchWeather();}
   function openPlan(){
     var options='<option value="">暂不安排</option>'+D.map(function(p){return '<option value="'+esc(p.n)+'">'+esc(p.n)+'</option>';}).join('');
@@ -171,7 +189,10 @@
     document.addEventListener('input',function(e){if(e.target.id==='shelf-search'){shelf.q=e.target.value.trim();renderShelf();}});
     document.addEventListener('change',function(e){var t=e.target;if(t.id==='daily-scene'){scene=t.value;renderDaily(true);}if(t.id==='manual-temp'){manual=t.value;if(manual){++weatherEpoch;weather=null;weatherText();renderDaily(true);}else fetchWeather();}if(t.dataset.plan){var next=Object.assign({},plan);if(t.value)next[t.dataset.plan]=t.value;else delete next[t.dataset.plan];if(write('chx_plan_v1',next))plan=next;}});
     document.addEventListener('keydown',function(e){if(e.key==='Escape'&&openName){closeDetail();return;}if(e.key==='Enter'&&e.target.id==='wx-input'){setCity(e.target.value);return;}if(e.key==='Tab'&&openName){var focusable=Array.from($('sheet').querySelectorAll('button:not([disabled]),a[href],input,select,[tabindex="0"]'));var first=focusable[0],last=focusable[focusable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
-    document.addEventListener('visibilitychange',function(){if(!document.hidden){swap=0;renderDaily(true);fetchWeather();}});
+    document.addEventListener('visibilitychange',function(){if(!document.hidden){swap=0;renderDaily(true);refreshWeatherIfNeeded();}});
+    window.addEventListener('pageshow',refreshWeatherIfNeeded);
+    window.addEventListener('online',refreshWeatherIfNeeded);
+    setInterval(function(){if(!document.hidden)refreshWeatherIfNeeded();},60000);
     fetchWeather();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
