@@ -10,7 +10,7 @@
  */
 
 
-const CACHE = "jinrichuanxiang-20261031-home-scenes-v1";
+const CACHE = "jinrichuanxiang-20261031-all-scenes-v1";
 
 
 const CORE = [
