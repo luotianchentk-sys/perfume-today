@@ -2,7 +2,7 @@
  * 策略：install 预缓存核心壳，运行时 cache-first + 按需缓存图片（ph/）。
  * 仅在 https 或 localhost 下注册生效。
  */
-const CACHE = "jinrichuanxiang-20261031-locked-v1";
+const CACHE = "jinrichuanxiang-20261031-location-v1";
 const CORE = [
   "./",
   "./index.html",
